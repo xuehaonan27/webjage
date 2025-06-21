@@ -20,4 +20,20 @@ class ContentAnalyzer {
 
         return crypto.createHash('md5').update(contentString).digest('hex');
     }
+
+    /**
+     * Preprocess content before sending to AI
+     * @param {Object} content - Raw content from extension
+     * @param {Object} metadata - Page metadata
+     * @returns {Object} Processed content
+     */
+    preprocessContent(content, metadata) { }
+
+    /**
+     * Enhance AI analysis with additional processing
+     * @param {Object} aiAnalysis - Analysis from AI service
+     * @param {Object} originalData - Original content data
+     * @returns {Object} Enhanced analysis
+     */
+    enhanceAnalysis(aiAnalysis, originalData) { }
 }

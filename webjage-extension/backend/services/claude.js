@@ -13,4 +13,11 @@ class ClaudeService {
         this.model = 'claude-3-haiku-20240307'; // Fast and cost-effective model
         this.maxTokens = 1000;
     }
+
+    /**
+     * Analyze webpage content using Claude AI
+     * @param {Object} data - Content data to analyze
+     * @returns {Promise<Object>} Analysis results
+     */
+    async analyzeContent(data) { }
 }
