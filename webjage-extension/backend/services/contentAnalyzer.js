@@ -71,3 +71,5 @@ class ContentAnalyzer {
             .trim(); // Trim
     }
 }
+
+module.exports = new ContentAnalyzer();
