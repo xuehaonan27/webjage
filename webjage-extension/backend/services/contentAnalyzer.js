@@ -27,7 +27,25 @@ class ContentAnalyzer {
      * @param {Object} metadata - Page metadata
      * @returns {Object} Processed content
      */
-    preprocessContent(content, metadata) { }
+    preprocessContent(content, metadata) {
+        const processed = {
+            text: this.cleanText(content.text),
+            wordCount: content.wordCount || 0,
+            images: content.images || [],
+            links: content.links || []
+        };
+
+        // Add reading time estimation
+        processed.estimatedReadingTime = this.calculateReadingTime(processed.wordCount);
+
+        // Extract key phrases
+        processed.keyPhrases = this.extractKeyPhrases(processed.text);
+
+        // Analyze text structure
+        processed.structure = this.analyzeTextStructure(processed.text);
+
+        return processed;
+    }
 
     /**
      * Enhance AI analysis with additional processing
@@ -36,4 +54,20 @@ class ContentAnalyzer {
      * @returns {Object} Enhanced analysis
      */
     enhanceAnalysis(aiAnalysis, originalData) { }
+
+    /**
+     * Clean and normalize text content
+     * @param {string} text - Raw text
+     * @returns {string} Cleaned text
+     */
+    cleanText(text) {
+        if (!text || typeof text !== 'string') {
+            return '';
+        }
+
+        return text
+            .replace(/\s+/g, ' ') // Remove excessive whitespace
+            .replace(/[^\w\s\.,!?;:()\-"']/g, '') // Remove special characters that might confuse AI
+            .trim(); // Trim
+    }
 }
