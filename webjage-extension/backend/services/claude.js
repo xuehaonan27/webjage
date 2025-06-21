@@ -24,22 +24,46 @@ class ClaudeService {
     async analyzeContent(data) {
         // unpack
         const { url, title, content, metadata } = data;
-        const prompt = this.buildAnalysisPrompt(url, title, content, metadata);
 
-        const response = await this.client.messages.create({
-            model: this.model,
-            max_tokens: this.maxTokens,
-            temperature: TEMPERATURE,
-            messages: [
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ]
-        });
+        try {
+            const prompt = this.buildAnalysisPrompt(url, title, content, metadata);
 
-        const analysisText = response.content[0].text;
-        return this.parseAnalysisResponse(analysisText);
+            const response = await this.client.messages.create({
+                model: this.model,
+                max_tokens: this.maxTokens,
+                temperature: TEMPERATURE,
+                messages: [
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ]
+            });
+
+            const analysisText = response.content[0].text;
+            return this.parseAnalysisResponse(analysisText);
+
+        } catch (error) {
+            console.error('Claude API error:', error);
+
+            if (error.status === 401) {
+                throw new Error(`Invalid API key. Please check your Claude API configuration. ${error.message}`);
+            }
+
+            if (error.status === 403) {
+                throw new Error(`Forbidden. Please check your Claude API configuration. ${error.message}`);
+            }
+
+            if (error.status === 429) {
+                throw new Error(`Rate limit exceeded. Please try again later. ${error.message}`);
+            }
+
+            if (error.status >= 500) {
+                throw new Error(`Claude API service is temporarily unavailable. ${error.message}`);
+            }
+
+            throw new Error(`Claude API error: ${error.message}`);
+        }
     }
 
     /**
@@ -110,7 +134,7 @@ Please provide a detailed analysis and return ONLY a valid JSON object with this
 
 Focus on content quality, accuracy, usefulness, and presentation. Consider the target audience and purpose of the content.`;
 
-        return prompt
+        return prompt;
     }
 
     /**
@@ -119,41 +143,73 @@ Focus on content quality, accuracy, usefulness, and presentation. Consider the t
      * @returns {Object} Parsed analysis object
      */
     parseAnalysisResponse(responseText) {
-        // Extract JSON from response (in case there's extra text)
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-            throw new Error('No JSON found in response');
-        }
-
-        const analysis = JSON.parse(jsonMatch[0]);
-
-        // Validate required fields
-        const requiredFields = ['summary', 'qualityScore', 'credibility', 'sentiment', 'category'];
-        for (const field of requiredFields) {
-            if (!analysis[field]) {
-                console.warn(`Missing required field: ${field}`);
+        try {
+            // Extract JSON from response (in case there's extra text)
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            if (!jsonMatch) {
+                throw new Error('No JSON found in response');
             }
+
+            const analysis = JSON.parse(jsonMatch[0]);
+
+            // Validate required fields
+            const requiredFields = ['summary', 'qualityScore', 'credibility', 'sentiment', 'category'];
+            for (const field of requiredFields) {
+                if (!analysis[field]) {
+                    console.warn(`Missing required field: ${field}`);
+                }
+            }
+
+            // Ensure qualityScore is a number between 1-10
+            if (typeof analysis.qualityScore === 'string') {
+                analysis.qualityScore = parseInt(analysis.qualityScore, 10);
+            }
+            analysis.qualityScore = Math.max(1, Math.min(10, analysis.qualityScore || 5));
+
+            // Ensure arrays exist
+            analysis.keyPoints = analysis.keyPoints || [];
+            analysis.strengths = analysis.strengths || [];
+            analysis.concerns = analysis.concerns || [];
+
+            // Set defaults for optional fields
+            analysis.targetAudience = analysis.targetAudience || 'General audience';
+            analysis.complexity = analysis.complexity || 'Intermediate';
+            analysis.factualAccuracy = analysis.factualAccuracy || 'Cannot Determine';
+            analysis.bias = analysis.bias || 'None Detected';
+            analysis.completeness = analysis.completeness || 'Mostly Complete';
+
+            return analysis;
+
+        } catch (error) {
+            console.error('Failed to parse Claude response:', error);
+            console.error('Raw response:', responseText);
+
+            // Return fallback analysis
+            return this.getFallbackAnalysis();
         }
+    }
 
-        // Ensure qualityScore is a number between 1-10
-        if (typeof analysis.qualityScore === 'string') {
-            analysis.qualityScore = parseInt(analysis.qualityScore, 10);
-        }
-        analysis.qualityScore = Math.max(1, Math.min(10, analysis.qualityScore || 5));
-
-        // Ensure arrays exist
-        analysis.keyPoints = analysis.keyPoints || [];
-        analysis.strengths = analysis.strengths || [];
-        analysis.concerns = analysis.concerns || [];
-
-        // Set defaults for optional fields
-        analysis.targetAudience = analysis.targetAudience || 'General audience';
-        analysis.complexity = analysis.complexity || 'Intermediate';
-        analysis.factualAccuracy = analysis.factualAccuracy || 'Cannot Determine';
-        analysis.bias = analysis.bias || 'None Detected';
-        analysis.completeness = analysis.completeness || 'Mostly Complete';
-
-        return analysis;
+    /**
+     * Get fallback analysis when parsing fails
+     * @returns {Object} Basic analysis object
+     */
+    getFallbackAnalysis() {
+        return {
+            summary: 'Content analysis completed, but detailed results could not be parsed.',
+            qualityScore: 5,
+            credibility: 'Cannot Determine',
+            sentiment: 'Neutral',
+            category: 'General',
+            readingTime: 'Unknown',
+            keyPoints: ['Content analysis was performed'],
+            strengths: ['Content was successfully processed'],
+            concerns: ['Detailed analysis results unavailable'],
+            targetAudience: 'General audience',
+            complexity: 'Unknown',
+            factualAccuracy: 'Cannot Determine',
+            bias: 'Cannot Determine',
+            completeness: 'Cannot Determine'
+        };
     }
 }
 
