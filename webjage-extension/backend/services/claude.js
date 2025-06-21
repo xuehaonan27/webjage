@@ -118,5 +118,43 @@ Focus on content quality, accuracy, usefulness, and presentation. Consider the t
      * @param {string} responseText - Raw response from Claude
      * @returns {Object} Parsed analysis object
      */
-    parseAnalysisResponse(responseText) { }
+    parseAnalysisResponse(responseText) {
+        // Extract JSON from response (in case there's extra text)
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error('No JSON found in response');
+        }
+
+        const analysis = JSON.parse(jsonMatch[0]);
+
+        // Validate required fields
+        const requiredFields = ['summary', 'qualityScore', 'credibility', 'sentiment', 'category'];
+        for (const field of requiredFields) {
+            if (!analysis[field]) {
+                console.warn(`Missing required field: ${field}`);
+            }
+        }
+
+        // Ensure qualityScore is a number between 1-10
+        if (typeof analysis.qualityScore === 'string') {
+            analysis.qualityScore = parseInt(analysis.qualityScore, 10);
+        }
+        analysis.qualityScore = Math.max(1, Math.min(10, analysis.qualityScore || 5));
+
+        // Ensure arrays exist
+        analysis.keyPoints = analysis.keyPoints || [];
+        analysis.strengths = analysis.strengths || [];
+        analysis.concerns = analysis.concerns || [];
+
+        // Set defaults for optional fields
+        analysis.targetAudience = analysis.targetAudience || 'General audience';
+        analysis.complexity = analysis.complexity || 'Intermediate';
+        analysis.factualAccuracy = analysis.factualAccuracy || 'Cannot Determine';
+        analysis.bias = analysis.bias || 'None Detected';
+        analysis.completeness = analysis.completeness || 'Mostly Complete';
+
+        return analysis;
+    }
 }
+
+module.exports = new ClaudeService();
