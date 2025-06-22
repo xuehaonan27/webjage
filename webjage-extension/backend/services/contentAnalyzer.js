@@ -167,42 +167,166 @@ class ContentAnalyzer {
      * @param {Object} content - Content object
      * @returns {Object} Technical metrics
      */
-    calculateTechnicalMetrics(content) { }
+    calculateTechnicalMetrics(content) {
+        const text = content.text || '';
+        const words = text.split(/\s+/).filter(w => w.length > 0);
+
+        return {
+            wordCount: words.length,
+            characterCount: text.length,
+            averageWordLength: words.length > 0
+                ? Math.round(words.reduce((sum, word) => sum + word.length, 0) / words.length)
+                : 0,
+            imageCount: content.images?.length || 0,
+            linkCount: content.links?.length || 0,
+            readabilityScore: this.calculateReadabilityScore(text)
+        };
+    }
 
     /**
      * Calculate simple readability score
      * @param {string} text - Text content
      * @returns {string} Readability level
      */
-    calculateReadabilityScore(text) { }
+    calculateReadabilityScore(text) {
+        if (!text) return 'Unknown';
+
+        const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+        const words = text.split(/\s+/).filter(w => w.length > 0);
+        const syllables = words.reduce((count, word) => {
+            return count + this.countSyllables(word);
+        }, 0);
+
+        if (sentences.length === 0 || words.length === 0) return 'Unknown';
+
+        // Simplified Flesch Reading Ease approximation
+        const avgSentenceLength = words.length / sentences.length;
+        const avgSyllablesPerWord = syllables / words.length;
+
+        const score = 206.835 - (1.015 * avgSentenceLength) - (84.6 * avgSyllablesPerWord);
+
+        if (score >= 90) return 'Very Easy';
+        if (score >= 80) return 'Easy';
+        if (score >= 70) return 'Fairly Easy';
+        if (score >= 60) return 'Standard';
+        if (score >= 50) return 'Fairly Difficult';
+        if (score >= 30) return 'Difficult';
+        return 'Very Difficult';
+    }
 
     /**
      * Count syllables in a word (approximation)
      * @param {string} word - Word to analyze
      * @returns {number} Syllable count
      */
-    countSyllables(word) { }
+    countSyllables(word) {
+        word = word.toLowerCase();
+        if (word.length <= 3) return 1;
+
+        const vowels = 'aeiouy';
+        let count = 0;
+        let previousWasVowel = false;
+
+        for (let i = 0; i < word.length; i++) {
+            const isVowel = vowels.includes(word[i]);
+            if (isVowel && !previousWasVowel) {
+                count++;
+            }
+            previousWasVowel = isVowel;
+        }
+
+        // Adjust for silent 'e'
+        if (word.endsWith('e')) count--;
+
+        return Math.max(1, count);
+    }
 
     /**
      * Analyze SEO aspects
      * @param {Object} data - Original content data
      * @returns {Object} SEO insights
      */
-    analyzeSEO(data) { }
+    analyzeSEO(data) {
+        const title = data.title || '';
+        const content = data.content || {};
+        const metadata = data.metadata || {};
+
+        return {
+            titleLength: title.length,
+            titleOptimal: title.length >= 30 && title.length <= 60,
+            hasMetaDescription: !!metadata.description,
+            metaDescriptionLength: metadata.description?.length || 0,
+            metaDescriptionOptimal: metadata.description &&
+                metadata.description.length >= 120 &&
+                metadata.description.length <= 160,
+            hasHeadings: content.text?.includes('H1:') || content.text?.includes('H2:'),
+            imageAltTextRatio: content.images?.length > 0
+                ? content.images.filter(img => img.alt).length / content.images.length
+                : 0
+        };
+    }
 
     /**
      * Analyze accessibility aspects
      * @param {Object} content - Content object
      * @returns {Object} Accessibility insights
      */
-    analyzeAccessibility(content) { }
+    analyzeAccessibility(content) {
+        return {
+            hasImageAltText: content.images?.some(img => img.alt) || false,
+            imageAltTextCoverage: content.images?.length > 0
+                ? Math.round((content.images.filter(img => img.alt).length / content.images.length) * 100)
+                : 100,
+            hasDescriptiveLinks: content.links?.some(link =>
+                link.text && link.text.length > 5 &&
+                !['click here', 'read more', 'more'].includes(link.text.toLowerCase())
+            ) || false,
+            estimatedReadingLevel: this.calculateReadabilityScore(content.text)
+        };
+    }
 
     /**
      * Analyze content freshness
      * @param {Object} metadata - Page metadata
      * @returns {Object} Freshness analysis
      */
-    analyzeContentFreshness(metadata) { }
+    analyzeContentFreshness(metadata) {
+        const publishDate = metadata?.['article:published_time'] ||
+            metadata?.['datePublished'] ||
+            metadata?.['date'];
+
+        if (!publishDate) {
+            return {
+                hasPublishDate: false,
+                freshness: 'Unknown'
+            };
+        }
+
+        try {
+            const pubDate = new Date(publishDate);
+            const now = new Date();
+            const daysDiff = Math.floor((now - pubDate) / (1000 * 60 * 60 * 24));
+
+            let freshness;
+            if (daysDiff <= 7) freshness = 'Very Fresh';
+            else if (daysDiff <= 30) freshness = 'Fresh';
+            else if (daysDiff <= 90) freshness = 'Recent';
+            else if (daysDiff <= 365) freshness = 'Somewhat Old';
+            else freshness = 'Old';
+
+            return {
+                hasPublishDate: true,
+                publishDate: pubDate.toISOString(),
+                daysOld: daysDiff,
+                freshness
+            };
+        } catch (error) {
+            return {
+                hasPublishDate: false,
+                freshness: 'Unknown'
+            };
+        }
+    }
 
     /**
      * Calculate confidence score for the analysis
@@ -210,7 +334,29 @@ class ContentAnalyzer {
      * @param {Object} originalData - Original data
      * @returns {number} Confidence score (0-100)
      */
-    calculateConfidenceScore(analysis, originalData) { }
+    calculateConfidenceScore(analysis, originalData) {
+        let score = 50; // Base score
+
+        // Increase confidence based on content length
+        const wordCount = originalData.content.wordCount || 0;
+        if (wordCount > 500) score += 20;
+        else if (wordCount > 200) score += 10;
+        else if (wordCount < 50) score -= 20;
+
+        // Increase confidence if we have metadata
+        if (originalData.metadata && Object.keys(originalData.metadata).length > 3) {
+            score += 10;
+        }
+
+        // Increase confidence if content has structure
+        if (analysis.technicalMetrics?.imageCount > 0) score += 5;
+        if (analysis.technicalMetrics?.linkCount > 0) score += 5;
+
+        // Decrease confidence for very short or very long content
+        if (wordCount > 10000) score -= 10;
+
+        return Math.max(0, Math.min(100, score));
+    }
 }
 
 module.exports = new ContentAnalyzer();
