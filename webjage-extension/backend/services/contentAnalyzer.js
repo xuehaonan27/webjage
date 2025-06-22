@@ -1,7 +1,6 @@
 // Content analyzer service
 // Processes and enhances webpage content analysis
 
-// For encrypting content
 const crypto = require('crypto');
 
 class ContentAnalyzer {
@@ -93,6 +92,31 @@ class ContentAnalyzer {
             .replace(/\s+/g, ' ') // Remove excessive whitespace
             .replace(/[^\w\s\.,!?;:()\-"']/g, '') // Remove special characters that might confuse AI
             .trim(); // Trim
+    }
+
+    /**
+     * Calculate estimated reading time
+     * @param {number} wordCount - Number of words
+     * @returns {string} Reading time estimate
+     */
+    calculateReadingTime(wordCount) {
+        if (!wordCount || wordCount < 1) {
+            return '< 1 min read';
+        }
+
+        // Average reading speed: 200-250 words per minute
+        const wordsPerMinute = 225;
+        const minutes = Math.ceil(wordCount / wordsPerMinute);
+
+        if (minutes === 1) {
+            return '1 min read';
+        } else if (minutes < 60) {
+            return `${minutes} min read`;
+        } else {
+            const hours = Math.floor(minutes / 60);
+            const remainingMinutes = minutes % 60;
+            return `${hours}h ${remainingMinutes}m read`;
+        }
     }
 
     /**
