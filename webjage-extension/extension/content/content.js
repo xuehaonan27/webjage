@@ -269,4 +269,174 @@ class WebJageContentExtractor {
         }
         return Math.abs(hash).toString(36);
     }
+
+    showFloatingWindow(data) {
+        if (!this.settings.showFloatingWindow) {
+            return;
+        }
+
+        if (!this.floatingWindow) {
+            this.createFloatingWindow();
+        }
+
+        this.updateFloatingWindow(data);
+        this.floatingWindow.style.display = 'block';
+    }
+
+    createFloatingWindow() {
+        this.floatingWindow = document.createElement('div');
+        this.floatingWindow.id = 'webjage-floating-window';
+        this.floatingWindow.innerHTML = `
+          <div class="webjage-header">
+            <div class="webjage-title">
+              <span class="webjage-icon">🤖</span>
+              WebJage AI Analysis
+            </div>
+            <div class="webjage-controls">
+              <button class="webjage-minimize" title="Minimize">−</button>
+              <button class="webjage-close" title="Close">×</button>
+            </div>
+          </div>
+          <div class="webjage-content">
+            <div class="webjage-loading">Analyzing page content...</div>
+          </div>
+        `;
+
+        document.body.appendChild(this.floatingWindow);
+        this.setupFloatingWindowEvents();
+    }
+
+    setupFloatingWindowEvents() {
+        // Make window draggable
+        let isDragging = false;
+        let dragOffset = { x: 0, y: 0 };
+
+        const header = this.floatingWindow.querySelector('.webjage-header');
+        header.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            dragOffset.x = e.clientX - this.floatingWindow.offsetLeft;
+            dragOffset.y = e.clientY - this.floatingWindow.offsetTop;
+            document.addEventListener('mousemove', handleDrag);
+            document.addEventListener('mouseup', stopDrag);
+        });
+
+        const handleDrag = (e) => {
+            if (isDragging) {
+                this.floatingWindow.style.left = (e.clientX - dragOffset.x) + 'px';
+                this.floatingWindow.style.top = (e.clientY - dragOffset.y) + 'px';
+            }
+        };
+
+        const stopDrag = () => {
+            isDragging = false;
+            document.removeEventListener('mousemove', handleDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        };
+
+        // Minimize/maximize functionality
+        const minimizeBtn = this.floatingWindow.querySelector('.webjage-minimize');
+        minimizeBtn.addEventListener('click', () => {
+            const content = this.floatingWindow.querySelector('.webjage-content');
+            const isMinimized = content.style.display === 'none';
+            content.style.display = isMinimized ? 'block' : 'none';
+            minimizeBtn.textContent = isMinimized ? '−' : '+';
+        });
+
+        // Close functionality
+        const closeBtn = this.floatingWindow.querySelector('.webjage-close');
+        closeBtn.addEventListener('click', () => {
+            this.floatingWindow.style.display = 'none';
+        });
+    }
+
+    updateFloatingWindow(data) {
+        const content = this.floatingWindow.querySelector('.webjage-content');
+
+        if (data.loading) {
+            content.innerHTML = '<div class="webjage-loading">Analyzing page content...</div>';
+            return;
+        }
+
+        if (data.error) {
+            content.innerHTML = `<div class="webjage-error">Error: ${data.error}</div>`;
+            return;
+        }
+
+        // Display analysis results
+        content.innerHTML = this.formatAnalysisResult(data);
+    }
+
+    formatAnalysisResult(analysis) {
+        const cached = analysis.cached ? '<span class="webjage-cached">(Cached)</span>' : '';
+
+        return `
+          <div class="webjage-analysis">
+            <div class="webjage-section">
+              <h4>Summary ${cached}</h4>
+              <p>${analysis.summary || 'No summary available'}</p>
+            </div>
+            
+            <div class="webjage-section">
+              <h4>Quality Score</h4>
+              <div class="webjage-score">
+                <span class="webjage-score-value">${analysis.qualityScore || 'N/A'}/10</span>
+                <div class="webjage-score-bar">
+                  <div class="webjage-score-fill" style="width: ${(analysis.qualityScore || 0) * 10}%"></div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="webjage-section">
+              <h4>Analysis</h4>
+              <div class="webjage-tags">
+                ${analysis.credibility ? `<span class="webjage-tag">Credibility: ${analysis.credibility}</span>` : ''}
+                ${analysis.sentiment ? `<span class="webjage-tag">Sentiment: ${analysis.sentiment}</span>` : ''}
+                ${analysis.category ? `<span class="webjage-tag">Category: ${analysis.category}</span>` : ''}
+                ${analysis.readingTime ? `<span class="webjage-tag">Reading Time: ${analysis.readingTime}</span>` : ''}
+              </div>
+            </div>
+            
+            ${analysis.keyPoints ? `
+              <div class="webjage-section">
+                <h4>Key Points</h4>
+                <ul class="webjage-points">
+                  ${analysis.keyPoints.map(point => `<li>${point}</li>`).join('')}
+                </ul>
+              </div>
+            ` : ''}
+          </div>
+        `;
+    }
+
+    displayAnalysisResult(data, cached = false) {
+        this.showFloatingWindow({ ...data, cached });
+    }
+
+    showError(message) {
+        this.showFloatingWindow({ error: message });
+    }
 }
+
+// Initialize content extractor when script loads
+const webJageExtractor = new WebJageContentExtractor();
+
+// Listen for messages from popup or background script
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    switch (request.action) {
+        case 'analyzeCurrentPage':
+            webJageExtractor.analyzeCurrentPage();
+            sendResponse({ success: true });
+            break;
+
+        case 'toggleFloatingWindow':
+            if (webJageExtractor.floatingWindow) {
+                const isVisible = webJageExtractor.floatingWindow.style.display !== 'none';
+                webJageExtractor.floatingWindow.style.display = isVisible ? 'none' : 'block';
+            }
+            sendResponse({ success: true });
+            break;
+
+        default:
+            sendResponse({ success: false, error: 'Unknown action' });
+    }
+});
