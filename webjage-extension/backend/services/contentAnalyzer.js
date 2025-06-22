@@ -100,7 +100,36 @@ class ContentAnalyzer {
      * @param {string} text - Text content
      * @returns {Array} Key phrases
      */
-    extractKeyPhrases(text) { }
+    extractKeyPhrases(text) {
+        if (!text) return [];
+
+        // Simple keyword extraction based on frequency and length
+        const words = text.toLowerCase()
+            .replace(/[^\w\s]/g, '')
+            .split(/\s+/)
+            .filter(word => word.length > 3);
+
+        // Count word frequency
+        const wordCount = {};
+        words.forEach(word => {
+            wordCount[word] = (wordCount[word] || 0) + 1;
+        });
+
+        // Get top frequent words (excluding common stop words)
+        const stopWords = new Set([
+            'this', 'that', 'with', 'have', 'will', 'from', 'they', 'know',
+            'want', 'been', 'good', 'much', 'some', 'time', 'very', 'when',
+            'come', 'here', 'just', 'like', 'long', 'make', 'many', 'over',
+            'such', 'take', 'than', 'them', 'well', 'were', 'what', 'your'
+        ]);
+
+        // I love Rust
+        return Object.entries(wordCount)
+            .filter(([word, count]) => count > 1 && !stopWords.has(word))
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10)
+            .map(([word]) => word);
+    }
 
     /**
      * Analyze text structure
@@ -114,42 +143,42 @@ class ContentAnalyzer {
      * @param {Object} content - Content object
      * @returns {Object} Technical metrics
      */
-    calculateTechnicalMetrics(content) {}
+    calculateTechnicalMetrics(content) { }
 
     /**
      * Calculate simple readability score
      * @param {string} text - Text content
      * @returns {string} Readability level
      */
-    calculateReadabilityScore(text) {}
+    calculateReadabilityScore(text) { }
 
     /**
      * Count syllables in a word (approximation)
      * @param {string} word - Word to analyze
      * @returns {number} Syllable count
      */
-    countSyllables(word) {}
+    countSyllables(word) { }
 
     /**
      * Analyze SEO aspects
      * @param {Object} data - Original content data
      * @returns {Object} SEO insights
      */
-    analyzeSEO(data) {}
+    analyzeSEO(data) { }
 
     /**
      * Analyze accessibility aspects
      * @param {Object} content - Content object
      * @returns {Object} Accessibility insights
      */
-    analyzeAccessibility(content) {}
+    analyzeAccessibility(content) { }
 
     /**
      * Analyze content freshness
      * @param {Object} metadata - Page metadata
      * @returns {Object} Freshness analysis
      */
-    analyzeContentFreshness(metadata) {}
+    analyzeContentFreshness(metadata) { }
 
     /**
      * Calculate confidence score for the analysis
@@ -157,7 +186,7 @@ class ContentAnalyzer {
      * @param {Object} originalData - Original data
      * @returns {number} Confidence score (0-100)
      */
-    calculateConfidenceScore(analysis, originalData) {}
+    calculateConfidenceScore(analysis, originalData) { }
 }
 
 module.exports = new ContentAnalyzer();
