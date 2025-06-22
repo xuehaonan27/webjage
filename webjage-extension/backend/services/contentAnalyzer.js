@@ -136,7 +136,31 @@ class ContentAnalyzer {
      * @param {string} text - Text content
      * @returns {Object} Structure analysis
      */
-    analyzeTextStructure(text) { }
+    analyzeTextStructure(text) {
+        if (!text) {
+            return {
+                paragraphs: 0,
+                sentences: 0,
+                avgSentenceLength: 0,
+                hasHeadings: false,
+                hasList: false
+            };
+        }
+
+        const paragraphs = text.split('\n\n').filter(p => p.trim().length > 0);
+        const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+        const avgSentenceLength = sentences.length > 0
+            ? Math.round(text.split(/\s+/).length / sentences.length)
+            : 0;
+
+        return {
+            paragraphs: paragraphs.length,
+            sentences: sentences.length,
+            avgSentenceLength,
+            hasHeadings: /^(H[1-6]:|#)/m.test(text),
+            hasList: /^[•\-\*]\s/m.test(text)
+        };
+    }
 
     /**
      * Calculate technical content metrics
